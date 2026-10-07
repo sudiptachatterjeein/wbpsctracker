@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>WBPSC Study Tracker</title>
+<style>
+:root{--bg:#f4f6fb;--c:#fff;--t:#161a2b;--m:#6b7390;--b:#e3e7f2;--p:#5b5bf0;--g:#16a34a;--r:#e11d48;--o:#f59e0b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1120;--c:#171b30;--t:#eef0fa;--m:#9097b8;--b:#262c4a;--p:#8080ff}}
+:root[data-theme="dark"]{--bg:#0e1120;--c:#171b30;--t:#eef0fa;--m:#9097b8;--b:#262c4a;--p:#8080ff}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.5 Inter,system-ui,sans-serif}
+nav{position:fixed;z-index:5;background:var(--c);border:1px solid var(--b);display:flex;gap:2px}
+nav button{flex:1;background:none;border:0;color:var(--m);padding:8px 4px;font:inherit;font-size:11px;cursor:pointer;border-radius:10px}
+nav button b{display:block;font-size:19px;font-weight:400}nav button.on{color:var(--p);background:color-mix(in srgb,var(--p) 12%,transparent)}
+main{padding:16px 14px 90px;max-width:1000px;margin:auto}
+@media(max-width:759px){nav{left:0;right:0;bottom:0;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px))}}
+@media(min-width:760px){nav{left:0;top:0;bottom:0;width:92px;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 6px;justify-content:flex-start}nav button{flex:none;padding:12px 4px}main{margin-left:110px;padding-bottom:30px}}
+h1{font-size:22px;margin:4px 0 14px}h2{font-size:15px;margin:0 0 10px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:16px;padding:14px;margin-bottom:12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.big{font-size:26px;font-weight:700}.sm{color:var(--m);font-size:12px}
+.bar{height:8px;background:var(--b);border-radius:9px;overflow:hidden;margin:4px 0 10px}.bar i{display:block;height:100%;background:var(--p);border-radius:9px}
+button.pb,.pb{background:var(--p);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer}.gh{background:none;border:1px solid var(--b);color:var(--t);border-radius:10px;padding:8px 12px;font:inherit;cursor:pointer}
+input,select,textarea{width:100%;background:var(--bg);color:var(--t);border:1px solid var(--b);border-radius:10px;padding:9px;font:inherit;margin:3px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1;min-width:90px}
+label.ck{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--b)}label.ck input{width:20px;height:20px;flex:none}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;background:color-mix(in srgb,var(--p) 14%,transparent);color:var(--p)}
+.tp{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b);cursor:pointer}
+.st0{color:var(--m)}.st1{color:var(--o)}.st2{color:var(--p)}.st3{color:var(--g)}
+.bars{display:flex;align-items:flex-end;gap:4px;height:90px}.bars div{flex:1;background:var(--p);border-radius:4px 4px 0 0;min-height:2px}
+.timer{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
+</style></head><body>
+<nav id="nav"></nav><main id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUB=['English','Language','General Studies','Arithmetic','Current Affairs','Typing'];
+const TOP={English:['Parts of speech','Tenses','Articles & prepositions','Subject-verb agreement','Sentence structure','Error spotting','Synonyms & antonyms','Idioms & one-word substitution','Report writing','Precis','Translation (to English)'],
+Language:['Grammar & spelling (sandhi, samas, karak)','Report format','Precis technique','Translation (from English)','Timed full papers'],
+'General Studies':['Everyday science: physics','Everyday science: chemistry','Everyday science: biology','Indian history: ancient','Indian history: medieval','Indian history: modern & freedom movement','Indian geography: rivers & mountains','Indian geography: climate, soils, resources','Current events (India)'],
+Arithmetic:['Divisibility, HCF, LCM','Fractions, decimals, simplification','Percentage, ratio, average','Partnership','Profit & loss, simple interest','Time and distance','Area of rectangles & squares'],
+'Current Affairs':['Schemes','Appointments & awards','Sports & important days','West Bengal affairs'],
+Typing:['Computer basics','Accuracy drill','Speed drill (target +20%)']};
+const DEF={exam:'',pin:'1234',targets:{English:9,Language:6,'General Studies':5,Arithmetic:6,'Current Affairs':3.5,Typing:2.5},
+checklist:['English: 20-25 MCQs','English: 5 new words with sentences','Language paper: one short piece (alt. days)','GS: one topic + 20-30 MCQs','Arithmetic: timed set','Current affairs: 30 min','Typing: 25 min'],
+logs:[],topics:{},mcq:[],mocks:[],notes:[],checks:{},timer:null,snaps:[],theme:'',audit:[],sb:{url:'',key:'',auto:false,last:''}};
+let S;try{S=Object.assign({},DEF,JSON.parse(localStorage.getItem('wbpsc')||'{}'))}catch(e){S=Object.assign({},DEF)}
+const save0=()=>{try{localStorage.setItem('wbpsc',JSON.stringify(S))}catch(e){}};const save=()=>{save0();sched()};
+const td=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const addD=(d,n)=>{const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10)};
+const wk0=()=>{const d=new Date(td()+'T00:00:00Z');return addD(td(),-((d.getUTCDay()+6)%7))};
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hm=m=>Math.floor(m/60)+'h '+Math.round(m%60)+'m';
+let tab='dash',unlocked=false,nf='';
+const TABS=[['dash','▦','Home'],['today','✓','Today'],['plan','☰','Syllabus'],['mock','✎','Mocks'],['notes','❖','Notes'],['admin','⚙','Admin']];
+// daily auto backup snapshot
+(()=>{if(!S.snaps.length||S.snaps[0].d!==td()){const c=Object.assign({},S,{snaps:[]});S.snaps.unshift({d:td(),data:c});S.snaps=S.snaps.slice(0,7);save()}})();
+if(S.theme)document.documentElement.dataset.theme=S.theme;
+const mins=(f)=>S.logs.filter(f).reduce((a,l)=>a+l.min,0);
+const streak=()=>{let d=td(),n=0;if(!mins(l=>l.d===d))d=addD(d,-1);while(mins(l=>l.d===d)>0){n++;d=addD(d,-1)}return n};
+function topicPct(s){const t=TOP[s],v=t.reduce((a,x)=>a+(S.topics[s+'|'+x]||0),0);return Math.round(v/(t.length*3)*100)}
+function render(){
+$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';render()"><b>${t[1]}</b>${t[2]}</button>`).join('');
+$('#app').innerHTML=({dash,today,plan,mock,notes,admin})[tab]();tick()}
+function dash(){
+const w=wk0(),tot=Object.values(S.targets).reduce((a,b)=>a+b,0)*60,done=mins(l=>l.d>=w),dl=S.exam?Math.ceil((new Date(S.exam)-new Date(td()))/864e5):null;
+const days=[...Array(14)].map((_,i)=>addD(td(),i-13)),dm=days.map(d=>mins(l=>l.d===d)),mx=Math.max(60,...dm);
+const ma=S.mcq.reduce((a,m)=>[a[0]+m.att,a[1]+m.cor],[0,0]);
+const mk=S.mocks.length?Math.round(S.mocks.reduce((a,m)=>a+m.sc/m.max,0)/S.mocks.length*100):0;
+return`<h1>Dashboard</h1><div class="grid">
+<div class="card"><div class="sm">Streak</div><div class="big">🔥 ${streak()} d</div></div>
+<div class="card"><div class="sm">Today</div><div class="big">${hm(mins(l=>l.d===td()))}</div></div>
+<div class="card"><div class="sm">MCQ accuracy</div><div class="big">${ma[0]?Math.round(ma[1]/ma[0]*100):0}%</div><div class="sm">${ma[0]} attempted</div></div>
+<div class="card"><div class="sm">Avg mock</div><div class="big">${mk}%</div></div>
+<div class="card"><div class="sm">Exam countdown</div><div class="big">${dl===null?'—':dl+' d'}</div><div class="sm">${dl===null?'Set date in Admin':''}</div></div></div>
+<div class="grid g2"><div class="card"><h2>This week · ${hm(done)} of ${hm(tot)}</h2><div class="bar"><i style="width:${Math.min(100,done/tot*100)}%"></i></div>
+${SUB.map(s=>{const m=mins(l=>l.d>=w&&l.sub===s),t=S.targets[s]*60;return`<div class="sm">${s} · ${hm(m)} / ${hm(t)}</div><div class="bar"><i style="width:${Math.min(100,m/t*100)}%;background:${m>=t?'var(--g)':'var(--p)'}"></i></div>`}).join('')}</div>
+<div class="card"><h2>Last 14 days</h2><div class="bars">${dm.map((m,i)=>`<div title="${days[i]}: ${hm(m)}" style="height:${m/mx*100}%"></div>`).join('')}</div>
+<h2 style="margin-top:16px">Syllabus progress</h2>${SUB.map(s=>`<div class="sm">${s} · ${topicPct(s)}%</div><div class="bar"><i style="width:${topicPct(s)}%;background:var(--g)"></i></div>`).join('')}</div></div>${extra()}`}
+function today(){const d=td(),c=S.checks[d]||{},ls=S.logs.filter(l=>l.d===d),run=S.timer;
+const opts=SUB.map(s=>`<option>${s}</option>`).join('');
+return`<h1>Today · ${d}</h1><div class="grid g2"><div class="card"><h2>Study timer</h2><select id="ts">${opts}</select>
+<div class="timer" id="tm">${run?'':'00:00:00'}</div>${run?`<div class="sm">${run.sub}</div><button class="pb" onclick="stopT()">Stop & save</button>`:`<button class="pb" onclick="startT()">Start</button>`}
+<h2 style="margin-top:16px">Manual log</h2><div class="row"><select id="ls">${opts}</select><input id="lm" type="number" placeholder="minutes"></div><input id="ln" placeholder="What did you study?"><button class="gh" onclick="addLog()">Add</button></div>
+<div class="card"><h2>Daily checklist (${S.checklist.filter((_,i)=>c[i]).length}/${S.checklist.length})</h2>${S.checklist.map((x,i)=>`<label class="ck"><input type="checkbox" ${c[i]?'checked':''} onchange="chk('${d}',${i},this.checked)">${esc(x)}</label>`).join('')}</div></div>
+<div class="grid g2"><div class="card"><h2>MCQ practice</h2><select id="qs">${opts}</select><div class="row"><input id="qa" type="number" placeholder="attempted"><input id="qc" type="number" placeholder="correct"></div><button class="gh" onclick="addQ()">Save</button>
+${S.mcq.filter(m=>m.d===d).map(m=>`<div class="sm">${m.sub}: ${m.cor}/${m.att}</div>`).join('')}</div>
+<div class="card"><h2>🍅 Pomodoro (25 min)</h2><div class="timer" id="pm">${pom?'':'25:00'}</div>${pom?`<div class="sm">${pom.sub}</div><button class="gh" onclick="pomX()">Cancel</button>`:'<button class="pb" onclick="pomGo()">Start (uses subject above)</button>'}<h2 style="margin-top:16px">Today's sessions</h2>${ls.length?ls.map(l=>`<div class="tp"><span><span class="chip">${l.sub}</span> ${esc(l.note||'')}</span><span>${hm(l.min)} <a onclick="delLog(${S.logs.indexOf(l)})">✕</a></span></div>`).join(''):'<div class="sm">Nothing logged yet.</div>'}
+<h2 style="margin-top:14px">Focus today (1-5)</h2><input type="range" min="1" max="5" value="${(S.checks[d]||{}).f||3}" onchange="S.checks['${d}']=Object.assign(S.checks['${d}']||{},{f:+this.value});save()"></div></div>`}
+function plan(){return`<h1>Syllabus tracker</h1><p class="sm">Tap a topic to cycle: not started → first pass → revised → mastered.</p>`+SUB.map(s=>`<div class="card"><h2>${s} · ${topicPct(s)}%</h2>${TOP[s].map((t,i)=>{const v=S.topics[s+'|'+t]||0;return`<div class="tp" onclick="cyc('${s}',${i})"><span>${t}</span><span class="st${v}">${['○ Not started','◔ First pass','◑ Revised','● Mastered'][v]}</span></div>`}).join('')}</div>`).join('')}
+function mock(){const m=S.mocks;let pl='';if(m.length>1){const p=m.map((x,i)=>`${i/(m.length-1)*280+10},${90-x.sc/x.max*80}`).join(' ');pl=`<svg viewBox="0 0 300 100" style="width:100%"><polyline fill="none" stroke="var(--p)" stroke-width="2.5" points="${p}"/></svg>`}
+return`<h1>Mock tests</h1><div class="card"><div class="row"><select id="ms">${SUB.slice(0,4).map(s=>`<option>${s}</option>`).join('')}<option>Full paper</option></select><input id="msc" type="number" placeholder="score"><input id="mmx" type="number" placeholder="out of"></div><input id="mw" placeholder="Weak areas / mistakes"><button class="pb" onclick="addM()">Add result</button></div>
+<div class="card"><h2>Score trend (%)</h2>${pl||'<div class="sm">Add 2+ results to see a trend.</div>'}</div>
+<div class="card">${m.slice().reverse().map((x,i)=>`<div class="tp"><span><span class="chip">${x.sub}</span> ${x.d} <span class="sm">${esc(x.w||'')}</span></span><span><b>${x.sc}/${x.max}</b> <a onclick="S.mocks.splice(${m.length-1-i},1);save();render()">✕</a></span></div>`).join('')}</div>`}
+function notes(){const q=nf.toLowerCase();const L=S.notes.filter(n=>!q||(n.t+n.body+n.sub).toLowerCase().includes(q)).sort((a,b)=>b.star-a.star||b.id-a.id);
+return`<h1>Notes & mistake book</h1><div class="card"><div class="row"><select id="ns">${SUB.map(s=>`<option>${s}</option>`).join('')}</select><select id="nk"><option>Note</option><option>Mistake</option><option>Current affairs</option><option>Vocabulary</option></select></div><input id="nt" placeholder="Title"><textarea id="nb" rows="4" placeholder="Write your note..."></textarea><button class="pb" onclick="addN()">Save note</button></div>
+<input placeholder="🔍 Search notes" value="${esc(nf)}" oninput="nf=this.value;render();document.querySelector('input[placeholder^=\\'🔍\\']').focus()">
+${L.map(n=>`<div class="card"><div class="row"><span><span class="chip">${n.sub}</span> <span class="chip">${n.k}</span> <span class="sm">${n.d}</span></span><span style="text-align:right;flex:none"><a onclick="star(${n.id})">${n.star?'★':'☆'}</a> <a onclick="delN(${n.id})">✕</a></span></div><b>${esc(n.t)}</b><div style="white-space:pre-wrap">${esc(n.body)}</div></div>`).join('')||'<div class="sm">No notes yet.</div>'}`}
+function admin(){if(!unlocked)return`<h1>Admin</h1><div class="card"><h2>Enter PIN</h2><input id="pn" type="password" inputmode="numeric" placeholder="PIN (default 1234)"><button class="pb" onclick="if($('#pn').value===S.pin){unlock()}else alert('Wrong PIN')">Unlock</button></div>`;
+return`<h1>Admin portal</h1><div class="grid g2"><div class="card"><h2>Settings</h2><div class="sm">Exam date</div><input type="date" value="${S.exam}" onchange="S.exam=this.value;save()"><div class="sm">Weekly target hours</div>${SUB.map(s=>`<div class="row"><span>${s}</span><input type="number" step=".5" value="${S.targets[s]}" onchange="S.targets['${s}']=+this.value;save()"></div>`).join('')}
+<div class="sm">Daily checklist (one per line)</div><textarea rows="6" onchange="S.checklist=this.value.split('\\n').filter(Boolean);save()">${esc(S.checklist.join('\n'))}</textarea>
+<div class="sm">Change PIN</div><input id="np" type="password" placeholder="New PIN"><div class="row"><button class="gh" onclick="if($('#np').value){S.pin=$('#np').value;save();alert('PIN updated')}">Update PIN</button><button class="gh" onclick="S.theme=S.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=S.theme;save()">Toggle theme</button></div></div>
+<div class="card"><h2>Data & backup</h2><p class="sm">Data lives in this browser. Download a backup regularly and keep it in Drive or email. ${S.snaps.length} auto-snapshots kept (daily, last 7).</p>
+<div class="row"><button class="pb" onclick="exp()">⬇ Download backup</button><button class="gh" onclick="$('#imp').click()">⬆ Restore file</button></div><input id="imp" type="file" accept=".json" hidden onchange="imp(this)">
+<button class="gh" style="margin-top:8px" onclick="csv()">Export study log (CSV)</button>
+<h2 style="margin-top:14px">Restore snapshot</h2>${S.snaps.map((s,i)=>`<div class="tp" onclick="snap(${i})"><span>${s.d}</span><span class="sm">${s.data.logs.length} logs · restore</span></div>`).join('')}
+${cloud()}<h2 style="margin-top:14px">Admin audit log</h2>${S.audit.slice(0,8).map(a=>`<div class="sm">${a.t} · ${a.a}</div>`).join('')||'<div class="sm">Empty</div>'}<h2 style="margin-top:14px">Stats</h2><div class="sm">${S.logs.length} sessions · ${hm(mins(()=>1))} total · ${S.notes.length} notes · ${S.mocks.length} mocks</div>
+<button class="gh" style="margin-top:12px;color:var(--r)" onclick="if(confirm('Erase ALL data?')){S=Object.assign({},DEF,{snaps:[]});save();render()}">Reset everything</button> <button class="gh" onclick="unlocked=false;render()">Lock</button></div></div>`}
+// actions
+function startT(){S.timer={sub:$('#ts').value,start:Date.now()};save();render()}
+function stopT(){const m=Math.max(1,Math.round((Date.now()-S.timer.start)/6e4));S.logs.push({d:td(),sub:S.timer.sub,min:m,note:'Timer'});S.timer=null;save();render()}
+function tick(){const e=$('#tm');if(e&&S.timer){const s=Math.floor((Date.now()-S.timer.start)/1e3);e.textContent=[s/3600,s/60%60,s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':')}}
+setInterval(tick,1000);
+function addLog(){const m=+$('#lm').value;if(!m)return;S.logs.push({d:td(),sub:$('#ls').value,min:m,note:$('#ln').value});save();render()}
+function delLog(i){S.logs.splice(i,1);save();render()}
+function chk(d,i,v){S.checks[d]=Object.assign(S.checks[d]||{},{[i]:v});save();render()}
+function addQ(){const a=+$('#qa').value,c=+$('#qc').value;if(!a||c>a)return alert('Check numbers');S.mcq.push({d:td(),sub:$('#qs').value,att:a,cor:c});save();render()}
+function cyc(s,i){const k=s+'|'+TOP[s][i];S.topics[k]=((S.topics[k]||0)+1)%4;save();render()}
+function addM(){const a=+$('#msc').value,b=+$('#mmx').value;if(!b||a>b)return alert('Check numbers');S.mocks.push({d:td(),sub:$('#ms').value,sc:a,max:b,w:$('#mw').value});save();render()}
+function addN(){if(!$('#nt').value&&!$('#nb').value)return;S.notes.push({id:Date.now(),d:td(),sub:$('#ns').value,k:$('#nk').value,t:$('#nt').value,body:$('#nb').value,star:0});save();render()}
+function star(id){const n=S.notes.find(x=>x.id===id);n.star=n.star?0:1;save();render()}
+function delN(id){S.notes=S.notes.filter(x=>x.id!==id);save();render()}
+function dl(name,txt,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click()}
+function exp(){dl('wbpsc-backup-'+td()+'.json',JSON.stringify(S),'application/json')}
+function csv(){dl('study-log.csv','date,subject,minutes,note\n'+S.logs.map(l=>[l.d,l.sub,l.min,'"'+(l.note||'').replace(/"/g,'""')+'"'].join(',')).join('\n'),'text/csv')}
+function imp(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{S=Object.assign({},DEF,JSON.parse(r.result));save();alert('Restored');render()}catch(e){alert('Invalid backup file')}};r.readAsText(f)}
+function snap(i){if(confirm('Restore snapshot from '+S.snaps[i].d+'?')){const sn=S.snaps;S=Object.assign({},DEF,S.snaps[i].data,{snaps:sn});save();render()}}
+
+let sb=null,usr=null,sbMsg='',sbArc=[],lk,pom=null,stt;
+const aud=a=>{S.audit.unshift({t:new Date().toLocaleString(),a});S.audit=S.audit.slice(0,50);save0()};
+function unlock(){unlocked=true;aud('Admin unlocked');clearTimeout(lk);lk=setTimeout(()=>{unlocked=false;if(tab==='admin')render()},3e5);render()}
+const sbSet=m=>{sbMsg=m;if(tab==='admin')render()};
+async function sbInit(){try{if(S.sb.url&&S.sb.key&&window.supabase){sb=supabase.createClient(S.sb.url,S.sb.key);const{data}=await sb.auth.getSession();usr=data.session?data.session.user:null}}catch(e){sb=null}}
+async function sbConnect(){await sbInit();sbSet(sb?'Connected. Sign in below.':'Could not connect. Check URL/key, internet, and that this file is NOT opened inside claude.ai (its security policy blocks Supabase).')}
+async function sbAuth(up){try{await sbInit();const c={email:$('#se').value,password:$('#sp').value};const r=up?await sb.auth.signUp(c):await sb.auth.signInWithPassword(c);if(r.error)throw r.error;usr=r.data.session?r.data.user:null;sbSet(usr?'Signed in.':'Check your email to confirm, then sign in.');aud('Cloud sign-in')}catch(e){sbSet(e.message)}}
+async function sbOut(){await sb.auth.signOut();usr=null;render()}
+const pay=()=>Object.assign({},S,{snaps:[],sb:{}});
+async function sbPush(arc){try{const t=new Date().toISOString();let r=await sb.from('tracker_state').upsert({user_id:usr.id,data:pay(),updated_at:t});if(r.error)throw r.error;if(arc){r=await sb.from('tracker_archive').insert({user_id:usr.id,kind:'full',data:pay()});if(r.error)throw r.error}S.sb.last=t;save0();sbSet('Synced '+new Date(t).toLocaleString())}catch(e){sbSet('Sync error: '+e.message)}}
+function sched(){if(!usr||!S.sb.auto)return;clearTimeout(stt);stt=setTimeout(()=>sbPush(0),4000)}
+async function sbPull(){try{const r=await sb.from('tracker_state').select('data').eq('user_id',usr.id).maybeSingle();if(r.error)throw r.error;if(!r.data)return sbSet('No cloud data yet.');if(!confirm('Replace local data with cloud copy?'))return;S=Object.assign({},DEF,r.data.data,{snaps:S.snaps,sb:S.sb});save0();aud('Pulled from cloud');render()}catch(e){sbSet(e.message)}}
+async function sbArchive(){const n=+prompt('Move logs and MCQ records older than how many days to the cloud archive?','60');if(!n)return;const c=addD(td(),-n),ol=S.logs.filter(l=>l.d<c),om=S.mcq.filter(m=>m.d<c);if(!ol.length&&!om.length)return sbSet('Nothing that old.');try{const r=await sb.from('tracker_archive').insert({user_id:usr.id,kind:'old_logs',data:{logs:ol,mcq:om,before:c}});if(r.error)throw r.error;S.logs=S.logs.filter(l=>l.d>=c);S.mcq=S.mcq.filter(m=>m.d>=c);save();aud('Archived '+ol.length+' old sessions');sbSet('Archived '+ol.length+' sessions to Supabase.')}catch(e){sbSet(e.message)}}
+async function sbList(){try{const r=await sb.from('tracker_archive').select('id,kind,created_at').order('created_at',{ascending:false}).limit(15);if(r.error)throw r.error;sbArc=r.data;sbSet('Loaded '+sbArc.length+' archive entries.')}catch(e){sbSet(e.message)}}
+async function sbRest(id){try{const r=await sb.from('tracker_archive').select('kind,data').eq('id',id).single();if(r.error)throw r.error;const d=r.data.data;if(r.data.kind==='full'){if(!confirm('Replace local data with this archive?'))return;S=Object.assign({},DEF,d,{snaps:S.snaps,sb:S.sb})}else{S.logs=S.logs.concat(d.logs||[]);S.mcq=S.mcq.concat(d.mcq||[])}save0();aud('Restored archive '+id);render()}catch(e){sbSet(e.message)}}
+function cloud(){return`<h2 style="margin-top:14px">☁ Supabase cloud</h2><input placeholder="Project URL" value="${esc(S.sb.url)}" onchange="S.sb.url=this.value.trim();save0()"><input placeholder="anon public key" value="${esc(S.sb.key)}" onchange="S.sb.key=this.value.trim();save0()"><button class="gh" onclick="sbConnect()">Connect</button>`+(usr?`<div class="sm">Signed in: ${esc(usr.email||'')} · last sync ${S.sb.last?new Date(S.sb.last).toLocaleString():'never'}</div><div class="row"><button class="pb" onclick="sbPush(1)">Push + archive copy</button><button class="gh" onclick="sbPull()">Pull latest</button></div><div class="row" style="margin-top:6px"><button class="gh" onclick="sbArchive()">Archive old data</button><button class="gh" onclick="sbList()">Archive list</button></div><label class="ck"><input type="checkbox" ${S.sb.auto?'checked':''} onchange="S.sb.auto=this.checked;save()">Auto-sync after every change</label>${sbArc.map(a=>`<div class="tp" onclick="sbRest(${a.id})"><span>${a.kind} · ${new Date(a.created_at).toLocaleDateString()}</span><span class="sm">restore</span></div>`).join('')}<button class="gh" onclick="sbOut()">Sign out</button>`:`<input id="se" placeholder="email"><input id="sp" type="password" placeholder="password"><div class="row"><button class="pb" onclick="sbAuth(0)">Sign in</button><button class="gh" onclick="sbAuth(1)">Sign up</button></div>`)+`<div class="sm">${esc(sbMsg)}</div>`}
+function pomGo(){pom={end:Date.now()+25*6e4,sub:$('#ts').value};render()}
+function pomX(){pom=null;render()}
+setInterval(()=>{if(!pom)return;const r=pom.end-Date.now();if(r<=0){S.logs.push({d:td(),sub:pom.sub,min:25,note:'Pomodoro'});pom=null;save();alert('Pomodoro done! Take a 5 min break.');render()}else{const e=$('#pm');if(e)e.textContent=String(Math.floor(r/6e4)).padStart(2,'0')+':'+String(Math.floor(r/1e3)%60).padStart(2,'0')}},1000);
+function rev(id){const n=S.notes.find(x=>x.id===id);n.rv=(n.rv||0)+1;save();render()}
+function extra(){const w=wk0(),pw=addD(w,-7),wm=mins(l=>l.d>=w),pm=mins(l=>l.d>=pw&&l.d<w);
+const ac=f=>{const a=S.mcq.filter(f),t=a.reduce((x,m)=>x+m.att,0);return t?Math.round(a.reduce((x,m)=>x+m.cor,0)/t*100)+'%':'—'};
+const by=SUB.map(s=>[s,mins(l=>l.d>=w&&l.sub===s)/(S.targets[s]*60)]).sort((a,b)=>a[1]-b[1]);
+const iv=[1,3,7,14],due=S.notes.filter(n=>n.k==='Mistake'&&(n.rv||0)<4&&Math.round((new Date(td())-new Date(n.d))/864e5)>=iv[n.rv||0]);
+const tm=mins(()=>1),q=S.mcq.reduce((a,m)=>a+m.att,0),k=streak();
+const B=[[k>=3,'🔥 3-day streak'],[k>=7,'⚡ 7-day streak'],[k>=30,'🏆 30-day streak'],[tm>=3000,'⏱ 50 hours'],[tm>=12000,'🎓 200 hours'],[q>=500,'🎯 500 MCQs'],[q>=2000,'🚀 2000 MCQs'],[S.mocks.length>=5,'📝 5 mocks']];
+return`<div class="grid g2"><div class="card"><h2>📊 Weekly report</h2><div>Hours: <b>${hm(wm)}</b> <span class="sm">(${wm>=pm?'▲':'▼'} vs last week ${hm(pm)})</span></div><div>MCQ accuracy: <b>${ac(m=>m.d>=w)}</b> <span class="sm">(last week ${ac(m=>m.d>=pw&&m.d<w)})</span></div><div>Strongest: <b>${by[5][0]}</b> · Needs attention: <b>${by[0][0]}</b></div></div>
+<div class="card"><h2>🔁 Mistakes due for revision (${due.length})</h2>${due.slice(0,4).map(n=>`<div class="tp"><span><span class="chip">${n.sub}</span> ${esc(n.t||n.body.slice(0,40))}</span><a onclick="rev(${n.id})">Done ✓</a></div>`).join('')||'<div class="sm">Nothing due. Save notes of type "Mistake" and they return on day 1, 3, 7, 14.</div>'}</div>
+<div class="card"><h2>🏅 Badges</h2>${B.map(b=>`<span class="chip" style="margin:2px;${b[0]?'':'opacity:.3'}">${b[1]}</span>`).join('')}</div></div>`}
+sbInit().then(render);
+render();
+</script></body></html>
