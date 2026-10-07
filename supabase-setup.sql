@@ -9,10 +9,10 @@ drop policy if exists "own archive" on tracker_archive; create policy "own archi
 drop policy if exists "admin reads state" on tracker_state; create policy "admin reads state" on tracker_state for select using (is_admin());
 drop policy if exists "read own or admin" on profiles; create policy "read own or admin" on profiles for select using (id=auth.uid() or is_admin());
 drop policy if exists "admin updates" on profiles; create policy "admin updates" on profiles for update using (is_admin()) with check (is_admin());
--- first account ever created becomes admin; later self-signups stay disabled until an admin enables them
+-- first account ever created becomes admin; later sign-ups are active immediately; an admin can disable anyone
 create or replace function handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
 declare first boolean; begin select count(*)=0 into first from profiles;
-insert into profiles(id,email,name,role,active) values(new.id,new.email,coalesce(new.raw_user_meta_data->>'name',''),case when first then 'admin' else 'student' end,first); return new; end $$;
+insert into profiles(id,email,name,role,active) values(new.id,new.email,coalesce(new.raw_user_meta_data->>'name',''),case when first then 'admin' else 'student' end,true); return new; end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function handle_new_user();
 -- backfill accounts that already exist: they become active, the oldest becomes admin
