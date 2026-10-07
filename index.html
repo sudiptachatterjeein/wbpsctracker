@@ -28,6 +28,7 @@ label.ck{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1p
 <nav id="nav"></nav><main id="app"></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+let LK='wbpsc';
 const SUB=['English','Language','General Studies','Arithmetic','Current Affairs','Typing'];
 const TOP={English:['Parts of speech','Tenses','Articles & prepositions','Subject-verb agreement','Sentence structure','Error spotting','Synonyms & antonyms','Idioms & one-word substitution','Report writing','Precis','Translation (to English)'],
 Language:['Grammar & spelling (sandhi, samas, karak)','Report format','Precis technique','Translation (from English)','Timed full papers'],
@@ -39,23 +40,23 @@ const DEF={exam:'',pin:'1234',targets:{English:9,Language:6,'General Studies':5,
 checklist:['English: 20-25 MCQs','English: 5 new words with sentences','Language paper: one short piece (alt. days)','GS: one topic + 20-30 MCQs','Arithmetic: timed set','Current affairs: 30 min','Typing: 25 min'],
 logs:[],topics:{},mcq:[],mocks:[],notes:[],checks:{},timer:null,snaps:[],theme:'',audit:[],sb:{url:'',key:'',auto:false,last:''}};
 let S;try{S=Object.assign({},DEF,JSON.parse(localStorage.getItem('wbpsc')||'{}'))}catch(e){S=Object.assign({},DEF)}
-const save0=()=>{try{localStorage.setItem('wbpsc',JSON.stringify(S))}catch(e){}};const save=()=>{save0();sched()};
+const save0=()=>{try{localStorage.setItem(LK,JSON.stringify(S))}catch(e){}};const save=()=>{save0();sched()};
 const td=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
 const addD=(d,n)=>{const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10)};
 const wk0=()=>{const d=new Date(td()+'T00:00:00Z');return addD(td(),-((d.getUTCDay()+6)%7))};
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const hm=m=>Math.floor(m/60)+'h '+Math.round(m%60)+'m';
-let tab='dash',unlocked=false,nf='';
-const TABS=[['dash','▦','Home'],['today','✓','Today'],['plan','☰','Syllabus'],['mock','✎','Mocks'],['notes','❖','Notes'],['admin','⚙','Admin']];
+let tab='dash',unlocked=true,nf='';
+const TABS=[['dash','▦','Home'],['today','✓','Today'],['plan','☰','Syllabus'],['mock','✎','Mocks'],['notes','❖','Notes'],['admin','⚙','Settings']];
 // daily auto backup snapshot
 (()=>{if(!S.snaps.length||S.snaps[0].d!==td()){const c=Object.assign({},S,{snaps:[]});S.snaps.unshift({d:td(),data:c});S.snaps=S.snaps.slice(0,7);save()}})();
-if(S.theme)document.documentElement.dataset.theme=S.theme;
+
 const mins=(f)=>S.logs.filter(f).reduce((a,l)=>a+l.min,0);
 const streak=()=>{let d=td(),n=0;if(!mins(l=>l.d===d))d=addD(d,-1);while(mins(l=>l.d===d)>0){n++;d=addD(d,-1)}return n};
 function topicPct(s){const t=TOP[s],v=t.reduce((a,x)=>a+(S.topics[s+'|'+x]||0),0);return Math.round(v/(t.length*3)*100)}
-function render(){
-$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';render()"><b>${t[1]}</b>${t[2]}</button>`).join('');
-$('#app').innerHTML=({dash,today,plan,mock,notes,admin})[tab]();tick()}
+function render0(){
+$('#nav').innerHTML=tabs().map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';render()"><b>${t[1]}</b>${t[2]}</button>`).join('');
+$('#app').innerHTML=({dash,today,plan,mock,notes,admin,users})[tab]();tick()}
 function dash(){
 const w=wk0(),tot=Object.values(S.targets).reduce((a,b)=>a+b,0)*60,done=mins(l=>l.d>=w),dl=S.exam?Math.ceil((new Date(S.exam)-new Date(td()))/864e5):null;
 const days=[...Array(14)].map((_,i)=>addD(td(),i-13)),dm=days.map(d=>mins(l=>l.d===d)),mx=Math.max(60,...dm);
@@ -91,15 +92,15 @@ return`<h1>Notes & mistake book</h1><div class="card"><div class="row"><select i
 <input placeholder="🔍 Search notes" value="${esc(nf)}" oninput="nf=this.value;render();document.querySelector('input[placeholder^=\\'🔍\\']').focus()">
 ${L.map(n=>`<div class="card"><div class="row"><span><span class="chip">${n.sub}</span> <span class="chip">${n.k}</span> <span class="sm">${n.d}</span></span><span style="text-align:right;flex:none"><a onclick="star(${n.id})">${n.star?'★':'☆'}</a> <a onclick="delN(${n.id})">✕</a></span></div><b>${esc(n.t)}</b><div style="white-space:pre-wrap">${esc(n.body)}</div></div>`).join('')||'<div class="sm">No notes yet.</div>'}`}
 function admin(){if(!unlocked)return`<h1>Admin</h1><div class="card"><h2>Enter PIN</h2><input id="pn" type="password" inputmode="numeric" placeholder="PIN (default 1234)"><button class="pb" onclick="if($('#pn').value===S.pin){unlock()}else alert('Wrong PIN')">Unlock</button></div>`;
-return`<h1>Admin portal</h1><div class="grid g2"><div class="card"><h2>Settings</h2><div class="sm">Exam date</div><input type="date" value="${S.exam}" onchange="S.exam=this.value;save()"><div class="sm">Weekly target hours</div>${SUB.map(s=>`<div class="row"><span>${s}</span><input type="number" step=".5" value="${S.targets[s]}" onchange="S.targets['${s}']=+this.value;save()"></div>`).join('')}
+return`<h1>Settings</h1><div class="grid g2"><div class="card"><h2>Settings</h2><div class="sm">Exam date</div><input type="date" value="${S.exam}" onchange="S.exam=this.value;save()"><div class="sm">Weekly target hours</div>${SUB.map(s=>`<div class="row"><span>${s}</span><input type="number" step=".5" value="${S.targets[s]}" onchange="S.targets['${s}']=+this.value;save()"></div>`).join('')}
 <div class="sm">Daily checklist (one per line)</div><textarea rows="6" onchange="S.checklist=this.value.split('\\n').filter(Boolean);save()">${esc(S.checklist.join('\n'))}</textarea>
-<div class="sm">Change PIN</div><input id="np" type="password" placeholder="New PIN"><div class="row"><button class="gh" onclick="if($('#np').value){S.pin=$('#np').value;save();alert('PIN updated')}">Update PIN</button><button class="gh" onclick="S.theme=S.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=S.theme;save()">Toggle theme</button></div></div>
+<div class="row"><button class="gh" onclick="theme()">◐ Theme: ${themeName()}</button></div></div>
 <div class="card"><h2>Data & backup</h2><p class="sm">Data lives in this browser. Download a backup regularly and keep it in Drive or email. ${S.snaps.length} auto-snapshots kept (daily, last 7).</p>
 <div class="row"><button class="pb" onclick="exp()">⬇ Download backup</button><button class="gh" onclick="$('#imp').click()">⬆ Restore file</button></div><input id="imp" type="file" accept=".json" hidden onchange="imp(this)">
 <button class="gh" style="margin-top:8px" onclick="csv()">Export study log (CSV)</button>
 <h2 style="margin-top:14px">Restore snapshot</h2>${S.snaps.map((s,i)=>`<div class="tp" onclick="snap(${i})"><span>${s.d}</span><span class="sm">${s.data.logs.length} logs · restore</span></div>`).join('')}
 ${cloud()}<h2 style="margin-top:14px">Admin audit log</h2>${S.audit.slice(0,8).map(a=>`<div class="sm">${a.t} · ${a.a}</div>`).join('')||'<div class="sm">Empty</div>'}<h2 style="margin-top:14px">Stats</h2><div class="sm">${S.logs.length} sessions · ${hm(mins(()=>1))} total · ${S.notes.length} notes · ${S.mocks.length} mocks</div>
-<button class="gh" style="margin-top:12px;color:var(--r)" onclick="if(confirm('Erase ALL data?')){S=Object.assign({},DEF,{snaps:[]});save();render()}">Reset everything</button> <button class="gh" onclick="unlocked=false;render()">Lock</button></div></div>`}
+<button class="gh" style="margin-top:12px;color:var(--r)" onclick="if(confirm('Erase ALL data?')){S=Object.assign({},DEF,{snaps:[]});save();render()}">Reset everything</button></div></div>`}
 // actions
 function startT(){S.timer={sub:$('#ts').value,start:Date.now()};save();render()}
 function stopT(){const m=Math.max(1,Math.round((Date.now()-S.timer.start)/6e4));S.logs.push({d:td(),sub:S.timer.sub,min:m,note:'Timer'});S.timer=null;save();render()}
@@ -124,10 +125,10 @@ let sb=null,usr=null,sbMsg='',sbArc=[],lk,pom=null,stt;
 const aud=a=>{S.audit.unshift({t:new Date().toLocaleString(),a});S.audit=S.audit.slice(0,50);save0()};
 function unlock(){unlocked=true;aud('Admin unlocked');clearTimeout(lk);lk=setTimeout(()=>{unlocked=false;if(tab==='admin')render()},3e5);render()}
 const sbSet=m=>{sbMsg=m;if(tab==='admin')render()};
-async function sbInit(){try{if(S.sb.url&&S.sb.key&&window.supabase){sb=supabase.createClient(S.sb.url,S.sb.key);const{data}=await sb.auth.getSession();usr=data.session?data.session.user:null}}catch(e){sb=null}}
-async function sbConnect(){await sbInit();sbSet(sb?'Connected. Sign in below.':'Could not connect. Check URL/key, internet, and that this file is NOT opened inside claude.ai (its security policy blocks Supabase).')}
-async function sbAuth(up){try{await sbInit();const c={email:$('#se').value,password:$('#sp').value};const r=up?await sb.auth.signUp(c):await sb.auth.signInWithPassword(c);if(r.error)throw r.error;usr=r.data.session?r.data.user:null;sbSet(usr?'Signed in.':'Check your email to confirm, then sign in.');aud('Cloud sign-in')}catch(e){sbSet(e.message)}}
-async function sbOut(){await sb.auth.signOut();usr=null;render()}
+
+
+
+
 const pay=()=>Object.assign({},S,{snaps:[],sb:{}});
 async function sbPush(arc){try{const t=new Date().toISOString();let r=await sb.from('tracker_state').upsert({user_id:usr.id,data:pay(),updated_at:t});if(r.error)throw r.error;if(arc){r=await sb.from('tracker_archive').insert({user_id:usr.id,kind:'full',data:pay()});if(r.error)throw r.error}S.sb.last=t;save0();sbSet('Synced '+new Date(t).toLocaleString())}catch(e){sbSet('Sync error: '+e.message)}}
 function sched(){if(!usr||!S.sb.auto)return;clearTimeout(stt);stt=setTimeout(()=>sbPush(0),4000)}
@@ -135,7 +136,7 @@ async function sbPull(){try{const r=await sb.from('tracker_state').select('data'
 async function sbArchive(){const n=+prompt('Move logs and MCQ records older than how many days to the cloud archive?','60');if(!n)return;const c=addD(td(),-n),ol=S.logs.filter(l=>l.d<c),om=S.mcq.filter(m=>m.d<c);if(!ol.length&&!om.length)return sbSet('Nothing that old.');try{const r=await sb.from('tracker_archive').insert({user_id:usr.id,kind:'old_logs',data:{logs:ol,mcq:om,before:c}});if(r.error)throw r.error;S.logs=S.logs.filter(l=>l.d>=c);S.mcq=S.mcq.filter(m=>m.d>=c);save();aud('Archived '+ol.length+' old sessions');sbSet('Archived '+ol.length+' sessions to Supabase.')}catch(e){sbSet(e.message)}}
 async function sbList(){try{const r=await sb.from('tracker_archive').select('id,kind,created_at').order('created_at',{ascending:false}).limit(15);if(r.error)throw r.error;sbArc=r.data;sbSet('Loaded '+sbArc.length+' archive entries.')}catch(e){sbSet(e.message)}}
 async function sbRest(id){try{const r=await sb.from('tracker_archive').select('kind,data').eq('id',id).single();if(r.error)throw r.error;const d=r.data.data;if(r.data.kind==='full'){if(!confirm('Replace local data with this archive?'))return;S=Object.assign({},DEF,d,{snaps:S.snaps,sb:S.sb})}else{S.logs=S.logs.concat(d.logs||[]);S.mcq=S.mcq.concat(d.mcq||[])}save0();aud('Restored archive '+id);render()}catch(e){sbSet(e.message)}}
-function cloud(){return`<h2 style="margin-top:14px">☁ Supabase cloud</h2><input placeholder="Project URL" value="${esc(S.sb.url)}" onchange="S.sb.url=this.value.trim();save0()"><input placeholder="anon public key" value="${esc(S.sb.key)}" onchange="S.sb.key=this.value.trim();save0()"><button class="gh" onclick="sbConnect()">Connect</button>`+(usr?`<div class="sm">Signed in: ${esc(usr.email||'')} · last sync ${S.sb.last?new Date(S.sb.last).toLocaleString():'never'}</div><div class="row"><button class="pb" onclick="sbPush(1)">Push + archive copy</button><button class="gh" onclick="sbPull()">Pull latest</button></div><div class="row" style="margin-top:6px"><button class="gh" onclick="sbArchive()">Archive old data</button><button class="gh" onclick="sbList()">Archive list</button></div><label class="ck"><input type="checkbox" ${S.sb.auto?'checked':''} onchange="S.sb.auto=this.checked;save()">Auto-sync after every change</label>${sbArc.map(a=>`<div class="tp" onclick="sbRest(${a.id})"><span>${a.kind} · ${new Date(a.created_at).toLocaleDateString()}</span><span class="sm">restore</span></div>`).join('')}<button class="gh" onclick="sbOut()">Sign out</button>`:`<input id="se" placeholder="email"><input id="sp" type="password" placeholder="password"><div class="row"><button class="pb" onclick="sbAuth(0)">Sign in</button><button class="gh" onclick="sbAuth(1)">Sign up</button></div>`)+`<div class="sm">${esc(sbMsg)}</div>`}
+function cloud(){return`<h2 style="margin-top:14px">☁ Cloud sync</h2><div class="sm">Signed in as ${esc(usr.email)} · last sync ${S.sb.last?new Date(S.sb.last).toLocaleString():'never'}. Changes sync automatically.</div><div class="row"><button class="pb" onclick="sbPush(1)">Push + archive copy</button><button class="gh" onclick="sbPull()">Pull latest</button></div><div class="row" style="margin-top:6px"><button class="gh" onclick="sbArchive()">Archive old data</button><button class="gh" onclick="sbList()">Archive list</button></div>${sbArc.map(a=>`<div class="tp" onclick="sbRest(${a.id})"><span>${a.kind} · ${new Date(a.created_at).toLocaleDateString()}</span><span class="sm">restore</span></div>`).join('')}<div class="sm">${esc(sbMsg)}</div>`}
 function pomGo(){pom={end:Date.now()+25*6e4,sub:$('#ts').value};render()}
 function pomX(){pom=null;render()}
 setInterval(()=>{if(!pom)return;const r=pom.end-Date.now();if(r<=0){S.logs.push({d:td(),sub:pom.sub,min:25,note:'Pomodoro'});pom=null;save();alert('Pomodoro done! Take a 5 min break.');render()}else{const e=$('#pm');if(e)e.textContent=String(Math.floor(r/6e4)).padStart(2,'0')+':'+String(Math.floor(r/1e3)%60).padStart(2,'0')}},1000);
@@ -149,6 +150,41 @@ const B=[[k>=3,'🔥 3-day streak'],[k>=7,'⚡ 7-day streak'],[k>=30,'🏆 30-da
 return`<div class="grid g2"><div class="card"><h2>📊 Weekly report</h2><div>Hours: <b>${hm(wm)}</b> <span class="sm">(${wm>=pm?'▲':'▼'} vs last week ${hm(pm)})</span></div><div>MCQ accuracy: <b>${ac(m=>m.d>=w)}</b> <span class="sm">(last week ${ac(m=>m.d>=pw&&m.d<w)})</span></div><div>Strongest: <b>${by[5][0]}</b> · Needs attention: <b>${by[0][0]}</b></div></div>
 <div class="card"><h2>🔁 Mistakes due for revision (${due.length})</h2>${due.slice(0,4).map(n=>`<div class="tp"><span><span class="chip">${n.sub}</span> ${esc(n.t||n.body.slice(0,40))}</span><a onclick="rev(${n.id})">Done ✓</a></div>`).join('')||'<div class="sm">Nothing due. Save notes of type "Mistake" and they return on day 1, 3, 7, 14.</div>'}</div>
 <div class="card"><h2>🏅 Badges</h2>${B.map(b=>`<span class="chip" style="margin:2px;${b[0]?'':'opacity:.3'}">${b[1]}</span>`).join('')}</div></div>`}
-sbInit().then(render);
-render();
+
+const CFG={url:'',key:''}; // optional: paste Supabase URL + anon key here before deploying
+const cfg=()=>{let c={};try{c=JSON.parse(localStorage.getItem('wbpsc_cfg')||'{}')}catch(e){}return{url:CFG.url||c.url||'',key:CFG.key||c.key||''}};
+let prof=null,lmsg='',ulist=[],umsg='',uload=false,boot=true;
+const thm=()=>{try{return localStorage.getItem('wbpsc_theme')||'auto'}catch(e){return'auto'}};
+const themeName=()=>({auto:'Auto',light:'Light',dark:'Dark'})[thm()];
+function applyTheme(){const m=thm();if(m==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=m}
+function theme(){const n={auto:'light',light:'dark',dark:'auto'}[thm()];try{localStorage.setItem('wbpsc_theme',n)}catch(e){}applyTheme();render()}
+applyTheme();
+const isAdm=()=>prof&&prof.role==='admin';
+const tabs=()=>TABS.concat(isAdm()?[['users','👥','Users']]:[]);
+async function enter(){const r=await sb.from('profiles').select('*').eq('id',usr.id).maybeSingle();
+if(!r.data||!r.data.active){await sb.auth.signOut();usr=null;lmsg='Your account is inactive or not set up. Ask the admin to activate it.';return false}
+prof=r.data;LK='wbpsc_'+usr.id;let loc={};try{loc=JSON.parse(localStorage.getItem(LK)||'{}')}catch(e){}
+S=Object.assign({},DEF,loc,{sb:Object.assign({},DEF.sb,loc.sb)});
+try{const c=await sb.from('tracker_state').select('data,updated_at').eq('user_id',usr.id).maybeSingle();if(c.data&&(!S.sb.last||new Date(c.data.updated_at)>new Date(S.sb.last)))S=Object.assign({},DEF,c.data.data,{snaps:S.snaps,sb:Object.assign({},DEF.sb,S.sb,{last:c.data.updated_at})})}catch(e){}
+S.sb.auto=true;if(!S.snaps.length||S.snaps[0].d!==td()){S.snaps.unshift({d:td(),data:Object.assign({},S,{snaps:[]})});S.snaps=S.snaps.slice(0,7)}save0();return true}
+async function sbInit(){const c=cfg();if(!c.url||!c.key||!window.supabase)return;try{sb=supabase.createClient(c.url,c.key);const{data}=await sb.auth.getSession();if(data.session){usr=data.session.user;await enter()}}catch(e){lmsg=e.message}}
+async function login(){if(!cfg().url){const u=$('#cu').value.trim(),k=$('#ck').value.trim();if(!u||!k){$('#lm').textContent='Enter project URL and key';return}localStorage.setItem('wbpsc_cfg',JSON.stringify({url:u,key:k}))}
+const em=$('#se').value.trim(),pw=$('#sp').value;$('#lm').textContent='Signing in...';
+try{sb=sb||supabase.createClient(cfg().url,cfg().key);const r=await sb.auth.signInWithPassword({email:em,password:pw});if(r.error)throw r.error;usr=r.data.user;if(!await enter())throw new Error(lmsg);lmsg='';aud('Login');tab='dash';render()}catch(e){usr=null;lmsg=e.message;render()}}
+async function logout(){try{await sb.auth.signOut()}catch(e){}usr=prof=null;LK='wbpsc';S=Object.assign({},DEF);ulist=[];uload=false;render()}
+function loginUI(){return`<div class="card" style="max-width:380px;margin:8vh auto"><h1>📚 WBPSC Study Tracker</h1><div class="sm" style="margin-bottom:8px">Log in to continue</div>${cfg().url?'':'<input id="cu" placeholder="Supabase project URL"><input id="ck" placeholder="Supabase anon key">'}<input id="se" type="email" placeholder="Email" autocomplete="username"><input id="sp" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button class="pb" style="width:100%;margin-top:6px" onclick="login()">Log in</button><div class="sm" id="lm" style="margin:8px 0;color:var(--r)">${esc(lmsg)}</div><button class="gh" onclick="theme()">◐ Theme: ${themeName()}</button><div class="sm" style="margin-top:10px">No account? Ask your admin to create one.</div></div>`}
+function render(){const nv=$('#nav');if(boot){nv.style.display='none';$('#app').innerHTML='<div class="sm" style="padding:60px;text-align:center">Loading…</div>';return}
+if(!usr){nv.style.display='none';$('#app').innerHTML=loginUI();return}
+nv.style.display='';render0();$('#app').insertAdjacentHTML('afterbegin',`<div class="row" style="justify-content:space-between;margin-bottom:6px"><span class="sm">${esc(prof.name||prof.email)} <span class="chip">${prof.role}</span></span><span style="flex:none;display:flex;gap:6px"><button class="gh" onclick="theme()">◐ ${themeName()}</button><button class="gh" onclick="logout()">Logout</button></span></div>`)}
+async function loadUsers(){uload=true;try{const[p,t]=await Promise.all([sb.from('profiles').select('*').order('created_at'),sb.from('tracker_state').select('user_id,data,updated_at')]);if(p.error)throw p.error;const m={};(t.data||[]).forEach(x=>m[x.user_id]=x);
+ulist=p.data.map(u=>{const x=m[u.id]||{},d=x.data||{},q=(d.mcq||[]).reduce((a,y)=>[a[0]+y.att,a[1]+y.cor],[0,0]);return Object.assign({},u,{min:(d.logs||[]).reduce((a,l)=>a+l.min,0),acc:q[0]?Math.round(q[1]/q[0]*100):null,last:x.updated_at})})}catch(e){umsg=e.message}render()}
+function users(){if(!isAdm())return'<h1>Users</h1><div class="card">Admins only.</div>';if(!uload)loadUsers();
+return`<h1>User management</h1><div class="card"><h2>Create user</h2><div class="row"><input id="un" placeholder="Name"><select id="ur"><option value="student">Student</option><option value="admin">Admin</option></select></div><input id="ue" type="email" placeholder="Email"><input id="up" type="text" placeholder="Password (min 6)"><button class="pb" onclick="createUser()">Create user</button><div class="sm" style="margin-top:6px">${esc(umsg)}</div></div>
+<div class="card"><h2>All users (${ulist.length})</h2>${ulist.map(u=>{const me=u.id===usr.id;return`<div class="tp" style="cursor:default;flex-wrap:wrap;gap:6px"><div><b>${esc(u.name||u.email)}</b> <span class="chip">${u.role}</span> <span class="chip" style="color:${u.active?'var(--g)':'var(--r)'}">${u.active?'active':'disabled'}</span><div class="sm">${esc(u.email)} · ${hm(u.min||0)} studied · MCQ ${u.acc===null?'—':u.acc+'%'} · sync ${u.last?new Date(u.last).toLocaleDateString():'never'}</div></div>${me?'<span class="sm">you</span>':`<div class="row" style="flex:none"><button class="gh" onclick="uset('${u.id}',{active:${!u.active}})">${u.active?'Disable':'Enable'}</button><button class="gh" onclick="uset('${u.id}',{role:'${u.role==='admin'?'student':'admin'}'})">Make ${u.role==='admin'?'student':'admin'}</button><button class="gh" onclick="ureset('${esc(u.email)}')">Reset pw</button></div>`}</div>`}).join('')}</div>`}
+async function createUser(){const email=$('#ue').value.trim(),pw=$('#up').value,name=$('#un').value.trim(),role=$('#ur').value;if(!email||pw.length<6){umsg='Email and a 6+ character password are required.';return render()}
+try{const c=cfg(),s2=supabase.createClient(c.url,c.key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});const r=await s2.auth.signUp({email,password:pw,options:{data:{name}}});if(r.error)throw r.error;
+const u=await sb.from('profiles').update({active:true,role,name}).eq('id',r.data.user.id);if(u.error)throw u.error;aud('Created user '+email);umsg='Created '+email+'. Share the email and password with the student.';await loadUsers()}catch(e){umsg=e.message;render()}}
+async function uset(id,p){const r=await sb.from('profiles').update(p).eq('id',id);umsg=r.error?r.error.message:'Updated.';aud('Updated a user');await loadUsers()}
+async function ureset(em){const r=await sb.auth.resetPasswordForEmail(em);umsg=r.error?r.error.message:'Password reset email sent to '+em;render()}
+render();sbInit().finally(()=>{boot=false;render()});
 </script></body></html>
